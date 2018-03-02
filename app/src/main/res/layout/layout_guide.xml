@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <View
+        android:id="@+id/id_tv_hello"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="200dp"/>
+
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:layout_below="@id/id_tv_hello"
+        android:background="@android:color/holo_blue_dark">
+
+        <ImageView
+            android:id="@+id/id_iv_icon"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="10dp"
+            android:src="@mipmap/ic_launcher"
+            />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_alignTop="@id/id_iv_icon"
+            android:layout_marginLeft="10dp"
+            android:layout_toRightOf="@id/id_iv_icon"
+            android:text="这是说明文字，通过布局可以设计丰富的引导布局。"
+            />
+
+        <Button
+            android:id="@+id/id_btn_close"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/id_iv_icon"
+            android:layout_centerHorizontal="true"
+            android:text="关闭"
+            />
+    </RelativeLayout>
+
+</RelativeLayout>
