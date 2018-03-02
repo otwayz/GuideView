@@ -13,4 +13,19 @@ layout 中需要用一个View 代替 需要引导的 View 。并且两者 id 需
 
 在onDraw 中画出 镂空区域
 
-![View](https://github.com/otwayz/GuideView/images/guide.png)
+使用方式
+
+```
+  guideView = GuideView.Builder.newInstance(this)
+                    .setCustomView(R.layout.layout_guide) //蒙层中的占位View id 同
+                    .setTargetView(findViewById(R.id.id_tv_hello))
+                    .setOnClickListener(R.id.id_btn_close, {
+                        guideView.hide()
+                    })
+                    .build()
+
+  guideView.show()
+```
+
+
+![View](https://github.com/otwayz/GuideView/blob/master/image/guide.png)
