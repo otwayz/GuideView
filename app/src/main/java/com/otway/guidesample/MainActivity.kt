@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
                     .setTargetView(findViewById(R.id.id_tv_hello))
                     .setShape(GuideView.RECTANGLE)
                     .setRadius(20)
+                    .setOutsideEnable(true)
                     .build(this)
 
             guideView.setOnClickListener(R.id.id_btn_close, {
