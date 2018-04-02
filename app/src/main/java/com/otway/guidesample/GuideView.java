@@ -1,5 +1,8 @@
 package com.otway.guidesample;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ObjectAnimator;
 import android.app.Activity;
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -9,41 +12,41 @@ import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
+import android.os.Build;
 import android.support.annotation.ColorInt;
-import android.support.annotation.IdRes;
 import android.support.annotation.IntDef;
 import android.support.annotation.LayoutRes;
+import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
+import android.util.AttributeSet;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
-import android.view.WindowManager;
-import android.widget.RelativeLayout;
+import android.widget.FrameLayout;
 import android.widget.TextView;
 
 /**
  * Created by Otway on 2018/2/27.
  */
 
-public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlobalLayoutListener {
+public class GuideView extends FrameLayout implements ViewTreeObserver.OnGlobalLayoutListener {
 
 	private final String TAG = this.getClass().getSimpleName();
-	private static final String SHOW_GUIDE_PREFIX = "show_guide_on_view_";
+	private final static int INVALID_COLOR = Integer.MIN_VALUE;
 	public static final int CIRCLE = 0x11;
 	public static final int RECTANGLE = 0x12;
 
 	private int mBgColor = Color.parseColor("#99000000");
-	private boolean mFirstBlood;
 	private View mTargetView;
-	private int mShape = RECTANGLE;
+	private int mShape = CIRCLE;
 	private boolean mIsMeasured;
 
 	private RectF mRect;
 	private int mRadius = 4;
 
-
-	public void setOutsideEnable(boolean outsideEnable) {
+	private void setOutsideEnable(boolean outsideEnable) {
 		if (outsideEnable) {
 			this.setOnClickListener(new OnClickListener() {
 				@Override
@@ -64,9 +67,26 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 	private Context mContext;
 	private View mCustomGuideView;
 
+	private GuideView(Context context, Builder builder) {
+		super(context);
+		init(context, builder);
+	}
+
 	private GuideView(Context context) {
 		super(context);
-		init(context);
+	}
+
+	private GuideView(Context context, AttributeSet attrs) {
+		super(context, attrs);
+	}
+
+	private GuideView(Context context, AttributeSet attrs, int defStyleAttr) {
+		super(context, attrs, defStyleAttr);
+	}
+
+	@RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+	private GuideView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
+		super(context, attrs, defStyleAttr, defStyleRes);
 	}
 
 	private void resetState() {
@@ -74,12 +94,11 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 		mIsMeasured = false;
 		mRadius = 4;
 		mRect = null;
-		mFirstBlood = false;
 		mShape = RECTANGLE;
 		mBgColor = Color.parseColor("#99000000");
 	}
 
-	private void init(Context context) {
+	private void init(Context context, Builder builder) {
 		this.mContext = context;
 		ViewGroup.LayoutParams layoutParams = new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
 		this.setLayoutParams(layoutParams);
@@ -87,11 +106,25 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 		this.setClickable(true);
 		this.setFocusable(true);
 
+		if (builder != null) {
+			if (builder.guideLayoutId != -1) {
+				setCustomGuideView(builder.guideLayoutId);
+			} else if (builder.guideLayout != null) {
+				setCustomGuideView(builder.guideLayout);
+			} else {
+				return;
+			}
+			setTargetView(builder.targetView);
+			if (builder.bgColor != INVALID_COLOR) {
+				setBgColor(builder.bgColor);
+			}
+			setShape(builder.shapeType);
+			setRadius(builder.roundRadius);
+			setOutsideEnable(builder.outsideAble);
+		}
+
 		setLayerType(LAYER_TYPE_SOFTWARE, null);
-
 		setWillNotDraw(false);
-
-		resetState();
 	}
 
 	public void show() {
@@ -99,21 +132,16 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 			return;
 		}
 
-		if (mFirstBlood && hasShown()) {
-			return;
-		}
-
-		if (mFirstBlood && !hasShown()) {
-			saveState();
+		if (mContext instanceof Activity && !((Activity) mContext).isFinishing()) {
+			ViewGroup decorView = (ViewGroup) Activity.class.cast(mContext).getWindow().getDecorView();
+			decorView.addView(this);
 		}
 
 		if (mTargetView != null) {
 			mTargetView.getViewTreeObserver().addOnGlobalLayoutListener(this);
-		}
-
-		if (mContext instanceof Activity) {
-			ViewGroup decorView = (ViewGroup) Activity.class.cast(mContext).getWindow().getDecorView();
-			decorView.addView(this);
+		} else {
+			mIsMeasured = true;
+			mCustomGuideView.setVisibility(VISIBLE);
 		}
 	}
 
@@ -122,60 +150,72 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 			return;
 		}
 
-		mTargetView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-		this.removeAllViews();
+		ObjectAnimator alphaAnimator = ObjectAnimator.ofFloat(this, "alpha", 1.0f, 0f).setDuration(300);
+		alphaAnimator.addListener(new AnimatorListenerAdapter() {
+			@Override
+			public void onAnimationEnd(Animator animation) {
+				if (mTargetView != null) {
+					mTargetView.getViewTreeObserver().removeOnGlobalLayoutListener(GuideView.this);
+				}
+				GuideView.this.removeAllViews();
 
-		if (mContext instanceof Activity) {
-			ViewGroup decorView = (ViewGroup) Activity.class.cast(mContext).getWindow().getDecorView();
-			decorView.removeView(this);
-		}
+				if (mContext instanceof Activity) {
+					ViewGroup decorView = (ViewGroup) Activity.class.cast(mContext).getWindow().getDecorView();
+					decorView.removeView(GuideView.this);
+				}
 
-		resetState();
+				resetState();
+			}
+		});
+		alphaAnimator.start();
 	}
 
 	@Override
 	public void onGlobalLayout() {
 		Log.d(TAG, "onGlobalLayout: GlobalLayoutListener callback");
 
-		if (mIsMeasured) {
-			mTargetView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-			return;
+		if (mTargetView != null) {
+
+			if (mIsMeasured) {
+				mTargetView.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+				return;
+			}
+
+			int width = mTargetView.getWidth();
+			int height = mTargetView.getHeight();
+
+			if (height > 0 && width > 0) {
+				mIsMeasured = true;
+			}
+
+			if (!mIsMeasured) {
+				return;
+			}
+
+			int[] location = new int[2];
+			mTargetView.getLocationOnScreen(location);
+
+			if (mRect == null) {
+				mRect = new RectF();
+			}
+
+			mRect.left = location[0];
+			mRect.top = location[1];
+			mRect.right = location[0] + width;
+			mRect.bottom = location[1] + height;
+
+
+			int id = mTargetView.getId();
+			View view = findViewById(id);
+			if (view != null) {
+				ViewGroup.MarginLayoutParams layoutParams = (MarginLayoutParams) view.getLayoutParams();
+				layoutParams.width = width;
+				layoutParams.height = height;
+				layoutParams.topMargin = location[1];
+			}
+			// FIXME there has not set the left and right margin , you should add rule in custom view to place a suitable location to fit the target view
+			mCustomGuideView.setVisibility(VISIBLE);
 		}
-
-		int width = mTargetView.getWidth();
-		int height = mTargetView.getHeight();
-
-		if (height > 0 && width > 0) {
-			mIsMeasured = true;
-		}
-
-		if (!mIsMeasured) {
-			return;
-		}
-
-		int[] location = new int[2];
-		mTargetView.getLocationOnScreen(location);
-
-		if (mRect == null) {
-			mRect = new RectF();
-		}
-
-		mRect.left = location[0];
-		mRect.top = location[1];
-		mRect.right = location[0] + width;
-		mRect.bottom = location[1] + height;
-
-
-		int id = mTargetView.getId();
-		View view = findViewById(id);
-		if (view != null) {
-			ViewGroup.MarginLayoutParams layoutParams = (MarginLayoutParams) view.getLayoutParams();
-			layoutParams.width = width;
-			layoutParams.height = height;
-			layoutParams.topMargin = location[1];
-		}
-		// todo there has not set the left and right margin , you should add rule in custom view to place a suitable location to fit the target view
-		mCustomGuideView.setVisibility(VISIBLE);
 	}
 
 	@Override
@@ -191,8 +231,7 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 
 	private void drawBackground(Canvas canvas) {
 
-		Log.d(TAG, "drawBackground: is drawing background");
-
+		Log.d(TAG, "drawBackground: is drawing background mRect: " + mRect);
 		// draw bitmap then draw it on screen
 		Bitmap bitmap = Bitmap.createBitmap(canvas.getWidth(), canvas.getHeight(), Bitmap.Config.ARGB_8888);
 		Canvas temp = new Canvas(bitmap);
@@ -203,19 +242,21 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 		// draw bg
 		temp.drawRect(0, 0, temp.getWidth(), temp.getHeight(), bgPaint);
 
-		// hollow out paint
-		Paint opPaint = new Paint();
-		PorterDuffXfermode xfermode = new PorterDuffXfermode(PorterDuff.Mode.CLEAR);// or SRC_OUT
-		opPaint.setXfermode(xfermode);
-		opPaint.setAntiAlias(true);
+		if (mRect != null) {
+			// hollow out paint
+			Paint opPaint = new Paint();
+			PorterDuffXfermode xfermode = new PorterDuffXfermode(PorterDuff.Mode.CLEAR);// or SRC_OUT
+			opPaint.setXfermode(xfermode);
+			opPaint.setAntiAlias(true);
 
-		switch (mShape) {
-			case CIRCLE:
-				temp.drawCircle(mRect.centerX(), mRect.centerY(), mRadius, opPaint);
-				break;
-			case RECTANGLE:
-				temp.drawRoundRect(mRect, mRadius, mRadius, opPaint);
-				break;
+			switch (mShape) {
+				case CIRCLE:
+					temp.drawCircle(mRect.centerX(), mRect.centerY(), mRadius, opPaint);
+					break;
+				case RECTANGLE:
+					temp.drawRoundRect(mRect, mRadius, mRadius, opPaint);
+					break;
+			}
 		}
 
 		// draw on screen
@@ -223,48 +264,31 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 		bitmap.recycle();
 	}
 
-	public void setCustomGuideView(View customGuideView) {
+	private void setCustomGuideView(@NonNull View customGuideView) {
 		this.mCustomGuideView = customGuideView;
 		this.mCustomGuideView.setVisibility(GONE);
 		this.addView(mCustomGuideView);
 	}
 
-	public void setCustomGuideView(@LayoutRes int layoutId) {
+	private void setCustomGuideView(@LayoutRes int layoutId) {
 		View inflate = LayoutInflater.from(mContext).inflate(layoutId, null);
 		setCustomGuideView(inflate);
 	}
 
-	public void setTargetView(View view) {
+	private void setTargetView(View view) {
 		this.mTargetView = view;
 	}
 
-	public void setShape(@Shape int shape) {
+	private void setShape(@Shape int shape) {
 		this.mShape = shape;
 	}
 
-	public void setBgColor(@ColorInt int color) {
+	private void setBgColor(@ColorInt int color) {
 		this.mBgColor = color;
 	}
 
-	public void setRadius(int radius) {
+	private void setRadius(int radius) {
 		this.mRadius = radius;
-	}
-
-	private void saveState() {
-		if (mTargetView != null) {
-			mContext.getSharedPreferences(TAG, Context.MODE_PRIVATE).edit().putBoolean(SHOW_GUIDE_PREFIX + mTargetView.getId(), true).apply();
-		}
-	}
-
-	private boolean hasShown() {
-		if (mTargetView == null) {
-			return true;
-		}
-		return mContext.getSharedPreferences(TAG, Context.MODE_PRIVATE).getBoolean(SHOW_GUIDE_PREFIX + mTargetView.getId(), false);
-	}
-
-	public void showOnce() {
-		mFirstBlood = true;
 	}
 
 	public void setText(int viewId, CharSequence text) {
@@ -297,70 +321,57 @@ public class GuideView extends RelativeLayout implements ViewTreeObserver.OnGlob
 
 	public static class Builder {
 
-		private GuideView guideView;
-
-		private Builder(Context context) {
-			guideView = new GuideView(context);
-		}
-
-		public static Builder newInstance(Context context) {
-			return new Builder(context);
-		}
+		private View targetView;
+		private View guideLayout;
+		private int guideLayoutId = -1;
+		private int bgColor = GuideView.INVALID_COLOR;
+		private int shapeType = CIRCLE;
+		private int roundRadius = 4;
+		private boolean outsideAble;
 
 		public Builder setTargetView(View target) {
-			guideView.setTargetView(target);
+			targetView = target;
 			return this;
 		}
 
-		public Builder setCustomView(View guideLayout) {
-			guideView.setCustomGuideView(guideLayout);
+		public Builder setCustomView(View layout) {
+			guideLayout = layout;
 			return this;
 		}
 
-		public Builder setCustomView(@LayoutRes int layout) {
-			guideView.setCustomGuideView(layout);
+		public Builder setCustomView(@LayoutRes int layoutId) {
+			guideLayoutId = layoutId;
 			return this;
 		}
 
 		public Builder setBgColor(@ColorInt int color) {
-			guideView.setBgColor(color);
-			return this;
-		}
-
-		public Builder setOnClickListener(@IdRes int viewId, OnClickListener listener) {
-			guideView.setOnClickListener(viewId, listener);
-			return this;
-		}
-
-		public Builder setText(@IdRes int viewId, CharSequence text) {
-			guideView.setText(viewId, text);
+			bgColor = color;
 			return this;
 		}
 
 		public Builder setShape(@Shape int shape) {
-			guideView.setShape(shape);
+			shapeType = shape;
 			return this;
 		}
 
 		public Builder setRadius(int radius) {
-			guideView.setRadius(radius);
-			return this;
-		}
-
-		public Builder showOnce() {
-			guideView.showOnce();
+			roundRadius = radius;
 			return this;
 		}
 
 		public Builder setOutsideEnable(boolean enable) {
-			guideView.setOutsideEnable(enable);
+			outsideAble = enable;
 			return this;
 		}
 
-
-		public GuideView build() {
+		public GuideView show(Context context) {
+			GuideView guideView = new GuideView(context, this);
+			guideView.show();
 			return guideView;
 		}
 
+		public GuideView build(Context context) {
+			return new GuideView(context, this);
+		}
 	}
 }

@@ -22,13 +22,16 @@ class MainActivity : AppCompatActivity() {
         }
 
         id_tv_hello.post {
-            guideView = GuideView.Builder.newInstance(this)
+            guideView = GuideView.Builder()
                     .setCustomView(R.layout.layout_guide)
                     .setTargetView(findViewById(R.id.id_tv_hello))
-                    .setOnClickListener(R.id.id_btn_close, {
-                        guideView.hide()
-                    })
-                    .build()
+                    .setShape(GuideView.RECTANGLE)
+                    .setRadius(20)
+                    .build(this)
+
+            guideView.setOnClickListener(R.id.id_btn_close, {
+                guideView.hide()
+            })
 
             guideView.show()
         }
